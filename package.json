@@ -1,0 +1,208 @@
+{
+  "name": "boxescape",
+  "displayName": "BoxEscape: Dev Container and Agent Sandbox Escape Checker",
+  "description": "Finds the settings that hand your host to an AI coding agent running \"safely\" in a dev container or Docker sandbox: --privileged, a mounted docker.sock, host network or PID, CAP_SYS_ADMIN, seccomp=unconfined, ~/.ssh, ~/.aws or $HOME mounted in, forwarded SSH agents, a firewall script that never runs. Checks devcontainer.json, Docker Compose and docker run lines that launch Claude Code, Codex and other agent CLIs. Quick Fixes, fully offline.",
+  "version": "0.1.0",
+  "publisher": "jaytankdev",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "devcontainer",
+    "dev containers",
+    "docker",
+    "docker compose",
+    "container security",
+    "sandbox",
+    "ai agent",
+    "claude code",
+    "codex",
+    "privileged"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/devcontainer.json",
+    "workspaceContains:**/.devcontainer.json",
+    "workspaceContains:**/*compose*.{yml,yaml}",
+    "onLanguage:jsonc",
+    "onLanguage:dockercompose",
+    "onLanguage:shellscript",
+    "onStartupFinished",
+    "onView:boxEscape.view"
+  ],
+  "main": "./extension.js",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#06363D",
+    "theme": "dark"
+  },
+  "license": "MIT",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "BoxEscape reads container configuration files from local disk."
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "boxEscape.rescan",
+        "title": "Rescan Workspace",
+        "category": "BoxEscape",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "boxEscape.applyFix",
+        "title": "Apply Quick Fix",
+        "category": "BoxEscape",
+        "icon": "$(lightbulb-autofix)"
+      },
+      {
+        "command": "boxEscape.openFinding",
+        "title": "Go to Finding",
+        "category": "BoxEscape"
+      },
+      {
+        "command": "boxEscape.focusView",
+        "title": "Show Container Escape Checks",
+        "category": "BoxEscape"
+      },
+      {
+        "command": "boxEscape.openSettings",
+        "title": "Open Settings",
+        "category": "BoxEscape",
+        "icon": "$(gear)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "boxEscape.openFinding",
+          "when": "false"
+        },
+        {
+          "command": "boxEscape.applyFix",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "boxEscape.rescan",
+          "when": "view == boxEscape.view",
+          "group": "navigation@1"
+        },
+        {
+          "command": "boxEscape.openSettings",
+          "when": "view == boxEscape.view",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "boxEscape.applyFix",
+          "when": "view == boxEscape.view && viewItem == finding.fixable",
+          "group": "inline@1"
+        },
+        {
+          "command": "boxEscape.applyFix",
+          "when": "view == boxEscape.view && viewItem == finding.fixable",
+          "group": "1_actions@1"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "boxescape",
+          "title": "BoxEscape",
+          "icon": "media/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "boxescape": [
+        {
+          "id": "boxEscape.view",
+          "name": "Container escape checks",
+          "icon": "media/activity.svg",
+          "contextualTitle": "BoxEscape"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "boxEscape.view",
+        "contents": "BoxEscape is turned off.\n[Open BoxEscape Settings](command:workbench.action.openSettings?%5B%22boxEscape%22%5D)",
+        "when": "!boxEscape.enabled"
+      },
+      {
+        "view": "boxEscape.view",
+        "contents": "Open a folder with a dev container, a Docker Compose file or scripts that start an AI agent in Docker, and BoxEscape checks how much of your host the container can reach.\n[Open Folder](command:vscode.openFolder)",
+        "when": "boxEscape.enabled && workbenchState == empty"
+      },
+      {
+        "view": "boxEscape.view",
+        "contents": "No container escape found.\nBoxEscape checks devcontainer.json, Docker Compose services and docker run lines that launch agent CLIs for --privileged, a shared Docker socket, host network / PID / IPC, dangerous capabilities, seccomp or AppArmor turned off, host credentials and $HOME mounted in, forwarded SSH / GPG agents, host devices and agent firewall scripts that never run.\n[Rescan Workspace](command:boxEscape.rescan)",
+        "when": "boxEscape.enabled && workbenchState != empty"
+      }
+    ],
+    "configuration": {
+      "title": "BoxEscape",
+      "properties": {
+        "boxEscape.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check dev container, Docker Compose and agent docker run settings for ways out to the host."
+        },
+        "boxEscape.rules": {
+          "type": "object",
+          "default": {},
+          "properties": {
+            "BE001": { "type": "string", "enum": ["error", "warning", "information", "hint", "off"], "description": "Privileged container." },
+            "BE002": { "type": "string", "enum": ["error", "warning", "information", "hint", "off"], "description": "Host Docker socket shared with the container." },
+            "BE003": { "type": "string", "enum": ["error", "warning", "information", "hint", "off"], "description": "Host network, PID, IPC or user namespace." },
+            "BE004": { "type": "string", "enum": ["error", "warning", "information", "hint", "off"], "description": "Dangerous Linux capability added." },
+            "BE005": { "type": "string", "enum": ["error", "warning", "information", "hint", "off"], "description": "seccomp, AppArmor or SELinux confinement turned off." },
+            "BE006": { "type": "string", "enum": ["error", "warning", "information", "hint", "off"], "description": "Host credentials, $HOME or a host system path mounted." },
+            "BE007": { "type": "string", "enum": ["error", "warning", "information", "hint", "off"], "description": "Parent of the workspace mounted." },
+            "BE008": { "type": "string", "enum": ["error", "warning", "information", "hint", "off"], "description": "SSH or GPG agent socket forwarded." },
+            "BE009": { "type": "string", "enum": ["error", "warning", "information", "hint", "off"], "description": "Host device passed through." },
+            "BE010": { "type": "string", "enum": ["error", "warning", "information", "hint", "off"], "description": "Agent egress firewall missing, not run or ignored." },
+            "BE011": { "type": "string", "enum": ["error", "warning", "information", "hint", "off"], "description": "AI agent container runs as root." }
+          },
+          "additionalProperties": false,
+          "markdownDescription": "Severity per rule, or `off`, e.g. `{ \"BE007\": \"off\", \"BE003\": \"error\" }`. When a rule is not set here, its severity depends on the finding: BE002, BE006 and BE008 are errors in containers that run an AI agent and warnings otherwise."
+        },
+        "boxEscape.extraAgentPatterns": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "default": [],
+          "markdownDescription": "Extra regular expressions (case-insensitive, at most 200 characters each, 20 patterns) that mark a container as running an AI agent when they match its name, image, command, lifecycle commands or Dockerfile, e.g. `my-agent-cli`. Claude Code, Codex, Aider, OpenCode, OpenHands, Cline, Cursor Agent and Gemini CLI are recognised already. In an untrusted workspace only your user setting is used."
+        },
+        "boxEscape.checkScripts": {
+          "type": "boolean",
+          "default": true,
+          "description": "Also check docker run / podman run lines in shell scripts (*.sh, *.bash) that launch an AI agent CLI."
+        },
+        "boxEscape.maxFiles": {
+          "type": "number",
+          "default": 2000,
+          "minimum": 1,
+          "description": "Maximum number of files scanned in the workspace (open files are always checked). Files over 1 MB are skipped."
+        },
+        "boxEscape.exclude": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/build/**", "**/out/**", "**/vendor/**", "**/venv/**", "**/.venv/**", "**/__pycache__/**", "**/coverage/**", "**/site-packages/**"],
+          "markdownDescription": "Glob patterns (workspace-relative) that are never scanned. `node_modules`, `.git`, `vendor`, `venv` and `.venv` are always excluded. In an untrusted workspace only your user setting is used."
+        }
+      }
+    }
+  }
+}
